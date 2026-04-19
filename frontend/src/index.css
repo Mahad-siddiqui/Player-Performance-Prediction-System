@@ -1,0 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Chakra+Petch:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	--bg-primary: #060b11;
+	--bg-secondary: #0b1119;
+	--text-primary: #f3f7ff;
+	--text-muted: #92a0b8;
+	--neon-green: #27f0a5;
+	--neon-blue: #35b6ff;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	font-family: 'Space Grotesk', sans-serif;
+	color: var(--text-primary);
+	background:
+		radial-gradient(circle at 20% 15%, rgba(39, 240, 165, 0.12), transparent 34%),
+		radial-gradient(circle at 82% 8%, rgba(53, 182, 255, 0.14), transparent 30%),
+		linear-gradient(160deg, var(--bg-primary) 0%, var(--bg-secondary) 55%, #0e1520 100%);
+	background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: 'Chakra Petch', sans-serif;
+	letter-spacing: 0.01em;
+}
+
+#root {
+	min-height: 100vh;
+}
