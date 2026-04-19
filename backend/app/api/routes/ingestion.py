@@ -122,7 +122,7 @@ def upload_wellness_records_csv(file: UploadFile = File(...), db: Session = Depe
 
 @router.post('/dummy/load-all')
 def load_all_dummy_csv(db: Session = Depends(get_db)):
-    base_dir = Path(__file__).resolve().parents[4] / 'data' / 'dummy_csv'
+    base_dir = Path(__file__).resolve().parents[3] / 'data' / 'dummy_csv'
 
     players_df = preprocess_players(_read_local_csv(base_dir / 'players.csv'))
     for row in players_df.to_dict('records'):

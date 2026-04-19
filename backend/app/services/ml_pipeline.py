@@ -75,13 +75,18 @@ def _build_training_frame(db: Session) -> pd.DataFrame:
             'recovery_score': wellness.recovery_score,
             'target_rating': rating,
             'target_injury': injury_label,
+            'target_injury_score': float(injury_prob),
         })
 
     if not out_rows:
-        return pd.DataFrame(columns=['player_id', *FEATURE_COLUMNS, 'target_rating', 'target_injury'])
+        return pd.DataFrame(columns=['player_id', *FEATURE_COLUMNS, 'target_rating', 'target_injury', 'target_injury_score'])
 
     df = pd.DataFrame(out_rows)
-    return df.groupby('player_id', as_index=False).mean(numeric_only=True)
+    grouped = df.groupby('player_id', as_index=False).mean(numeric_only=True)
+
+    cutoff = float(grouped['target_injury_score'].median())
+    grouped['target_injury'] = (grouped['target_injury_score'] >= cutoff).astype(int)
+    return grouped
 
 
 def train_models(db: Session) -> dict:
@@ -94,6 +99,11 @@ def train_models(db: Session) -> dict:
     X = df[FEATURE_COLUMNS]
     y_rating = df['target_rating']
     y_injury = (df['target_injury'] > 0.5).astype(int)
+    if y_injury.nunique() < 2:
+        sorted_idx = np.argsort(df['target_injury_score'].values)
+        half = len(sorted_idx) // 2
+        y_injury = pd.Series(0, index=df.index)
+        y_injury.iloc[sorted_idx[half:]] = 1
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)

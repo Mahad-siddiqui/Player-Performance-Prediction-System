@@ -1,10 +1,14 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file='.env', env_file_encoding='utf-8', extra='ignore')
+ENV_FILE = Path(__file__).resolve().parents[2] / '.env'
 
-    DATABASE_URL: str = 'mysql+pymysql://root:root@localhost:3306/soccer_ml'
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=str(ENV_FILE), env_file_encoding='utf-8', extra='ignore')
+
+    DATABASE_URL: str = 'sqlite:///./soccer_ml.db'
     BACKEND_CORS_ORIGINS: str = 'http://localhost:5173'
 
     @property
