@@ -47,6 +47,23 @@ export function fetchAdminOverview(): Promise<{
   return request('/api/reports/admin/overview');
 }
 
+export function fetchAdminDashboard(): Promise<{
+  metrics: {
+    players: number;
+    matches: number;
+    wellnessRecords: number;
+    predictions: number;
+    accuracy: number;
+    uptime: number;
+  };
+  apiSync: Array<{ name: string; status: 'synced' | 'syncing' | 'error'; lastSync: string; records: number }>;
+  modelPerformance: Array<{ label: string; accuracy: number; model: string }>;
+  recentActivity: Array<{ time: string; msg: string; type: 'success' | 'error' | 'info' }>;
+  systemLoad: { cpu: number; memory: number; mlQueue: number; storage: number };
+}> {
+  return request('/api/reports/admin/dashboard');
+}
+
 export async function uploadCsvFile(file: File): Promise<{ inserted: number; dataset: string; errors?: string[] }> {
   const lowerName = file.name.toLowerCase();
   let endpoint = '';
@@ -78,18 +95,48 @@ export async function uploadCsvFile(file: File): Promise<{ inserted: number; dat
   return response.json();
 }
 
-export function trainModels(): Promise<{ trained_rows: number; features: string[]; models_saved: string[] }> {
+export function trainModels(): Promise<{ trained_rows: number; features: string[]; models_saved: string[]; predictions_created?: number; predictions_skipped?: number }> {
   return request('/api/predictions/train', { method: 'POST' });
+}
+
+export function generateAllPredictions(): Promise<{ created: number; skipped: number }> {
+  return request('/api/predictions/generate-all', { method: 'POST' });
 }
 
 export function fetchManagerPlayers(): Promise<Player[]> {
   return request<Player[]>('/api/reports/manager/players');
 }
 
+export function fetchManagerDashboard(): Promise<{
+  players: Player[];
+  fatigueDistanceData: Array<{ match: string; fatigue: number; hr: number; distance: number; opponent: string }>;
+  teams: string[];
+  dates: string[];
+}> {
+  return request('/api/reports/manager/dashboard');
+}
+
 export function fetchFanDashboard(): Promise<{
   comparisonPlayers: Player[];
   goalContributions: Array<{ player: string; predicted: number; actual: number; assists: number }>;
   teamForm: Array<{ week: string; rating: number; opponent: string }>;
+  upcomingMatch: {
+    id: string;
+    homeTeam: string;
+    awayTeam: string;
+    date: string;
+    time: string;
+    venue: string;
+    competition: string;
+    predictedScore: string;
+    winProbability: number;
+    drawProbability: number;
+    lossProbability: number;
+    status: 'upcoming' | 'live' | 'completed';
+  };
+  standoutPlayer: Player | null;
+  goalProbability: number;
+  seasonCards: Array<{ label: string; stats: Array<{ l: string; v: string }> }>;
 }> {
   return request('/api/reports/fan/dashboard');
 }

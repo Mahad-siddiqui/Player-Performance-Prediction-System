@@ -6,8 +6,7 @@ import {
 } from 'lucide-react';
 import BentoCard from '../components/BentoCard';
 import StatBadge from '../components/StatBadge';
-import { API_SYNC_STATUS, DB_METRICS } from '../data/mockData';
-import { fetchAdminOverview, trainModels, uploadCsvFile } from '../services/api';
+import { fetchAdminDashboard, generateAllPredictions, trainModels, uploadCsvFile } from '../services/api';
 
 function StatusDot({ status }: { status: 'synced' | 'syncing' | 'error' }) {
   if (status === 'synced') return <div className="w-2 h-2 rounded-full bg-neon-green" />;
@@ -25,31 +24,30 @@ interface UploadedFile {
 export default function AdminDashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [apiStatuses, setApiStatuses] = useState(API_SYNC_STATUS);
-  const [metrics, setMetrics] = useState(DB_METRICS);
+  const [apiStatuses, setApiStatuses] = useState<Array<{ name: string; status: 'synced' | 'syncing' | 'error'; lastSync: string; records: number }>>([]);
+  const [metrics, setMetrics] = useState({ players: 0, matches: 0, wellnessRecords: 0, predictions: 0, accuracy: 0, uptime: 0 });
+  const [modelPerformance, setModelPerformance] = useState<Array<{ label: string; accuracy: number; model: string }>>([]);
+  const [recentActivity, setRecentActivity] = useState<Array<{ time: string; msg: string; type: 'success' | 'error' | 'info' }>>([]);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
-  const [systemLoad, setSystemLoad] = useState(42);
+  const [systemLoad, setSystemLoad] = useState({ cpu: 0, memory: 0, mlQueue: 0, storage: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadOverview = useCallback(async () => {
+  const loadDashboard = useCallback(async () => {
     try {
-      const overview = await fetchAdminOverview();
-      setMetrics((prev) => ({
-        ...prev,
-        players: overview.players,
-        matches: overview.matches,
-        wellnessRecords: overview.wellness_records,
-        predictions: overview.predictions,
-        accuracy: overview.avg_predicted_rating > 0 ? Number((overview.avg_predicted_rating * 10).toFixed(1)) : prev.accuracy,
-      }));
+      const payload = await fetchAdminDashboard();
+      setMetrics(payload.metrics);
+      setApiStatuses(payload.apiSync);
+      setSystemLoad(payload.systemLoad);
+      setModelPerformance(payload.modelPerformance);
+      setRecentActivity(payload.recentActivity);
     } catch {
-      // Keep fallback values when backend is unavailable.
+      // Keep existing state if backend call fails.
     }
   }, []);
 
   useEffect(() => {
-    loadOverview();
-  }, [loadOverview]);
+    loadDashboard();
+  }, [loadDashboard]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -97,25 +95,20 @@ export default function AdminDashboard() {
 
     try {
       await trainModels();
+      await generateAllPredictions();
     } catch {
       // Training requires enough rows; ingestion itself is still successful.
     }
 
-    loadOverview();
+    loadDashboard();
   };
 
   const handleRefreshApi = (name: string) => {
     setRefreshingId(name);
     setTimeout(() => {
-      setApiStatuses(prev =>
-        prev.map(a => a.name === name ? { ...a, status: 'synced', lastSync: 'just now' } : a)
-      );
+      loadDashboard();
       setRefreshingId(null);
-    }, 1800);
-  };
-
-  const handleSystemRefresh = () => {
-    setSystemLoad(Math.floor(Math.random() * 40) + 30);
+    }, 900);
   };
 
   const now = new Date();
@@ -143,7 +136,7 @@ export default function AdminDashboard() {
               <span className="text-neon-green text-sm font-semibold">All Systems Operational</span>
             </div>
             <button
-              onClick={handleSystemRefresh}
+              onClick={loadDashboard}
               className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all"
             >
               <RefreshCw size={16} />
@@ -307,14 +300,14 @@ export default function AdminDashboard() {
                 <Cpu size={16} className="text-neon-cyan" />
                 <span className="text-sm font-semibold text-white">System Load</span>
               </div>
-              <StatBadge label={`${systemLoad}%`} variant={systemLoad > 70 ? 'danger' : 'info'} size="sm" />
+              <StatBadge label={`${systemLoad.cpu}%`} variant={systemLoad.cpu > 70 ? 'danger' : 'info'} size="sm" />
             </div>
             <div className="space-y-3">
               {[
-                { label: 'CPU', value: systemLoad, color: 'bg-neon-cyan' },
-                { label: 'Memory', value: 61, color: 'bg-neon-green' },
-                { label: 'ML Queue', value: 28, color: 'bg-neon-orange' },
-                { label: 'Storage', value: 44, color: 'bg-neon-cyan' },
+                { label: 'CPU', value: systemLoad.cpu, color: 'bg-neon-cyan' },
+                { label: 'Memory', value: systemLoad.memory, color: 'bg-neon-green' },
+                { label: 'ML Queue', value: systemLoad.mlQueue, color: 'bg-neon-orange' },
+                { label: 'Storage', value: systemLoad.storage, color: 'bg-neon-cyan' },
               ].map(({ label, value, color }) => (
                 <div key={label}>
                   <div className="flex justify-between text-xs mb-1">
@@ -338,12 +331,7 @@ export default function AdminDashboard() {
               <span className="text-sm font-semibold text-white">Model Performance</span>
             </div>
             <div className="space-y-3">
-              {[
-                { label: 'Match Outcome', accuracy: 78.4, model: 'XGBoost v3' },
-                { label: 'Score Prediction', accuracy: 62.1, model: 'LSTM v2' },
-                { label: 'Injury Risk', accuracy: 84.7, model: 'RF v5' },
-                { label: 'Player Rating', accuracy: 71.3, model: 'GBM v4' },
-              ].map(({ label, accuracy, model }) => (
+              {modelPerformance.map(({ label, accuracy, model }) => (
                 <div key={label} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.03]">
                   <div>
                     <div className="text-xs font-medium text-white">{label}</div>
@@ -365,14 +353,7 @@ export default function AdminDashboard() {
               <span className="text-sm font-semibold text-white">Recent Activity</span>
             </div>
             <div className="space-y-2 text-xs">
-              {[
-                { time: '2m ago', msg: 'Wellness batch synced', type: 'success' },
-                { time: '5m ago', msg: 'Match predictions updated', type: 'success' },
-                { time: '8m ago', msg: 'GPS tracker timeout', type: 'error' },
-                { time: '15m ago', msg: 'New players imported (23)', type: 'success' },
-                { time: '22m ago', msg: 'Model retrained on new data', type: 'info' },
-                { time: '1h ago', msg: 'DB backup completed', type: 'success' },
-              ].map(({ time, msg, type }, i) => (
+              {recentActivity.map(({ time, msg, type }, i) => (
                 <div key={i} className="flex items-start gap-2 p-2 rounded-lg hover:bg-white/[0.03] transition-colors">
                   <div className={`w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0 ${
                     type === 'success' ? 'bg-neon-green' :

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, MOCK_USERS } from '../data/mockData';
+import { User } from '../data/mockData';
 import { loginByEmail } from '../services/api';
 
 interface AuthContextType {
@@ -37,11 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(found);
       return true;
     } catch {
-      const fallback = MOCK_USERS.find((u) => u.email === email);
-      if (fallback) {
-        setUser(fallback);
-        return true;
-      }
       return false;
     }
   };

@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { LogIn, ShieldCheck, Users, Sparkles } from 'lucide-react';
 import BentoCard from '../components/ui/BentoCard';
 import { useAuth } from '../contexts/AuthContext';
-import { MOCK_USERS, User } from '../data/mockData';
+import { User } from '../data/mockData';
 import { UserRole } from '../types';
 import { fetchUsers } from '../services/api';
 
@@ -19,7 +19,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('manager@soccerml.io');
   const [error, setError] = useState('');
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
+  const [users, setUsers] = useState<User[]>([]);
 
   const roleHints = useMemo(() => ({
     admin: 'System Administrator',
@@ -35,9 +35,9 @@ export default function LoginPage() {
     const run = async () => {
       try {
         const apiUsers = await fetchUsers();
-        if (apiUsers.length) setUsers(apiUsers);
+        setUsers(apiUsers);
       } catch {
-        // Keep fallback mock users.
+        // Keep empty list when backend is unavailable.
       }
     };
 
@@ -53,7 +53,7 @@ export default function LoginPage() {
       return;
     }
 
-    const target = users.find((entry) => entry.email === email.trim()) || MOCK_USERS.find((entry) => entry.email === email.trim());
+    const target = users.find((entry) => entry.email === email.trim());
     navigate(target ? getHomePath(target.role) : '/');
   };
 

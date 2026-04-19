@@ -12,11 +12,8 @@ import {
 import BentoCard from '../components/BentoCard';
 import GlassModal from '../components/GlassModal';
 import StatBadge from '../components/StatBadge';
-import { MOCK_PLAYERS, FATIGUE_DISTANCE_DATA, PLAYER_RADAR_DATA, Player } from '../data/mockData';
-import { fetchManagerPlayers } from '../services/api';
-
-const TEAMS = ['FC United', 'City FC', 'Rovers FC'];
-const DATES = ['Apr 22, 2026', 'Apr 29, 2026', 'May 6, 2026'];
+import { Player } from '../data/mockData';
+import { fetchManagerDashboard } from '../services/api';
 
 type SortKey = 'name' | 'position' | 'fitnessScore' | 'predictedRating' | 'health' | 'injuryRisk';
 type SortDir = 'asc' | 'desc';
@@ -65,7 +62,14 @@ const RadarTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{
 };
 
 function PlayerModal({ player, onClose }: { player: Player; onClose: () => void }) {
-  const radar = PLAYER_RADAR_DATA(player.id);
+  const radar = [
+    { stat: 'Speed', value: player.speed, league: 75 },
+    { stat: 'Passing', value: player.passAccuracy, league: 82 },
+    { stat: 'Fitness', value: player.fitnessScore, league: 78 },
+    { stat: 'Stamina', value: 100 - player.fatigueLevel, league: 70 },
+    { stat: 'Dribble', value: Math.min(player.dribbles * 1.5, 100), league: 60 },
+    { stat: 'Tackles', value: Math.min(player.tackles, 100), league: 50 },
+  ];
   return (
     <GlassModal isOpen onClose={onClose} title={`${player.name} — Player Report`} size="xl">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -186,10 +190,13 @@ function PlayerModal({ player, onClose }: { player: Player; onClose: () => void 
 }
 
 export default function ManagerDashboard() {
-  const [players, setPlayers] = useState<Player[]>(MOCK_PLAYERS);
-  const [selectedTeam, setSelectedTeam] = useState(TEAMS[0]);
-  const [selectedDate, setSelectedDate] = useState(DATES[0]);
-  const [selectedPlayer, setSelectedPlayer] = useState(MOCK_PLAYERS[5].id);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [trendData, setTrendData] = useState<Array<{ match: string; fatigue: number; hr: number; distance: number; opponent: string }>>([]);
+  const [teams, setTeams] = useState<string[]>([]);
+  const [dates, setDates] = useState<string[]>([]);
+  const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedPlayer, setSelectedPlayer] = useState('');
   const [modalPlayer, setModalPlayer] = useState<Player | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('predictedRating');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -197,15 +204,17 @@ export default function ManagerDashboard() {
   useEffect(() => {
     const run = async () => {
       try {
-        const apiPlayers = await fetchManagerPlayers();
-        if (apiPlayers.length) {
-          setPlayers(apiPlayers);
-          if (!apiPlayers.find((p) => p.id === selectedPlayer)) {
-            setSelectedPlayer(apiPlayers[0].id);
-          }
-        }
+        const payload = await fetchManagerDashboard();
+        setPlayers(payload.players);
+        setTrendData(payload.fatigueDistanceData);
+        setTeams(payload.teams);
+        setDates(payload.dates);
+
+        if (payload.players.length) setSelectedPlayer(payload.players[0].id);
+        if (payload.teams.length) setSelectedTeam(payload.teams[0]);
+        if (payload.dates.length) setSelectedDate(payload.dates[0]);
       } catch {
-        // Keep fallback mock data when backend is unavailable.
+        // Keep current state when backend call fails.
       }
     };
 
@@ -228,7 +237,7 @@ export default function ManagerDashboard() {
         { stat: 'Dribble', value: Math.min(selectedPlayerData.dribbles * 1.5, 100), league: 60 },
         { stat: 'Tackles', value: Math.min(selectedPlayerData.tackles, 100), league: 50 },
       ]
-    : PLAYER_RADAR_DATA(selectedPlayer);
+    : [];
 
   const sortedPlayers = useMemo(() => {
     return [...players].sort((a, b) => {
@@ -278,7 +287,7 @@ export default function ManagerDashboard() {
                 onChange={e => setSelectedTeam(e.target.value)}
                 className="bg-transparent text-sm text-white outline-none pr-4 cursor-pointer"
               >
-                {TEAMS.map(t => <option key={t} value={t} className="bg-dark-700">{t}</option>)}
+                {teams.map(t => <option key={t} value={t} className="bg-dark-700">{t}</option>)}
               </select>
             </div>
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10">
@@ -288,7 +297,7 @@ export default function ManagerDashboard() {
                 onChange={e => setSelectedDate(e.target.value)}
                 className="bg-transparent text-sm text-white outline-none pr-4 cursor-pointer"
               >
-                {DATES.map(d => <option key={d} value={d} className="bg-dark-700">{d}</option>)}
+                {dates.map(d => <option key={d} value={d} className="bg-dark-700">{d}</option>)}
               </select>
             </div>
           </div>
@@ -416,7 +425,7 @@ export default function ManagerDashboard() {
             </div>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={FATIGUE_DISTANCE_DATA} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
+                <LineChart data={trendData} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis dataKey="match" tick={{ fill: 'rgba(226,232,240,0.5)', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: 'rgba(226,232,240,0.5)', fontSize: 10 }} axisLine={false} tickLine={false} />

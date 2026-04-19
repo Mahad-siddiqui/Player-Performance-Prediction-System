@@ -9,10 +9,7 @@ import {
 } from 'lucide-react';
 import BentoCard from '../components/BentoCard';
 import StatBadge from '../components/StatBadge';
-import {
-  UPCOMING_MATCH, GOAL_CONTRIBUTIONS_DATA, TEAM_FORM_DATA,
-  COMPARISON_PLAYERS, getCountdown, Player,
-} from '../data/mockData';
+import { Player, Match, getCountdown } from '../data/mockData';
 import { fetchFanDashboard } from '../services/api';
 
 const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ color: string; name: string; value: number }>; label?: string }) => {
@@ -87,20 +84,19 @@ function PlayerCompareCard({ player, side }: { player: Player; side: 'left' | 'r
 }
 
 export default function FanDashboard() {
-  const [comparisonPlayers, setComparisonPlayers] = useState<Player[]>(COMPARISON_PLAYERS);
-  const [goalContributionsData, setGoalContributionsData] = useState(GOAL_CONTRIBUTIONS_DATA);
-  const [teamFormData, setTeamFormData] = useState(TEAM_FORM_DATA);
+  const [comparisonPlayers, setComparisonPlayers] = useState<Player[]>([]);
+  const [goalContributionsData, setGoalContributionsData] = useState<Array<{ player: string; predicted: number; actual: number; assists: number }>>([]);
+  const [teamFormData, setTeamFormData] = useState<Array<{ week: string; rating: number; opponent: string }>>([]);
+  const [seasonCards, setSeasonCards] = useState<Array<{ label: string; stats: Array<{ l: string; v: string }> }>>([]);
+  const [goalProbability, setGoalProbability] = useState(74);
+  const [match, setMatch] = useState<Match | null>(null);
+  const [standoutPlayer, setStandoutPlayer] = useState<Player | null>(null);
   const [countdown, setCountdown] = useState('');
-  const [p1Id, setP1Id] = useState(COMPARISON_PLAYERS[5]?.id || COMPARISON_PLAYERS[0]?.id);
-  const [p2Id, setP2Id] = useState(COMPARISON_PLAYERS[8]?.id || COMPARISON_PLAYERS[1]?.id);
+  const [p1Id, setP1Id] = useState('');
+  const [p2Id, setP2Id] = useState('');
 
-  const match = UPCOMING_MATCH;
   const player1 = comparisonPlayers.find(p => p.id === p1Id) || comparisonPlayers[0];
   const player2 = comparisonPlayers.find(p => p.id === p2Id) || comparisonPlayers[1] || comparisonPlayers[0];
-
-  const standoutPlayer = comparisonPlayers.reduce((a, b) =>
-    b.predictedRating > a.predictedRating ? b : a
-  );
 
   useEffect(() => {
     const run = async () => {
@@ -113,8 +109,12 @@ export default function FanDashboard() {
         }
         if (payload.goalContributions.length) setGoalContributionsData(payload.goalContributions);
         if (payload.teamForm.length) setTeamFormData(payload.teamForm);
+        setMatch(payload.upcomingMatch);
+        setStandoutPlayer(payload.standoutPlayer);
+        setGoalProbability(payload.goalProbability);
+        setSeasonCards(payload.seasonCards);
       } catch {
-        // Keep fallback mock datasets.
+        // Keep current state when backend call fails.
       }
     };
 
@@ -122,11 +122,16 @@ export default function FanDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!match) return;
     const update = () => setCountdown(getCountdown(match.date, match.time));
     update();
     const interval = setInterval(update, 60000);
     return () => clearInterval(interval);
-  }, [match.date, match.time]);
+  }, [match]);
+
+  if (!match || !standoutPlayer || !comparisonPlayers.length) {
+    return <div className="min-h-screen bg-mesh pt-16 px-4 pb-4 md:px-6 md:pb-6" />;
+  }
 
   const countdownParts = countdown.split(' ');
 
@@ -238,7 +243,7 @@ export default function FanDashboard() {
                   <Flame size={14} className="text-neon-orange" />
                   <span className="text-xs text-gray-400">Goal probability vs Dynamo</span>
                 </div>
-                <div className="text-neon-orange font-black">74%</div>
+                <div className="text-neon-orange font-black">{goalProbability}%</div>
               </div>
             </div>
           </BentoCard>
@@ -383,39 +388,20 @@ export default function FanDashboard() {
         </BentoCard>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {[
-            {
-              icon: Trophy,
-              label: 'Season Record',
-              color: 'text-neon-yellow',
-              stats: [
-                { l: 'Wins', v: '14' }, { l: 'Draws', v: '5' }, { l: 'Losses', v: '6' },
-              ],
-            },
-            {
-              icon: Target,
-              label: 'Goals This Season',
-              color: 'text-neon-green',
-              stats: [
-                { l: 'Scored', v: '48' }, { l: 'Conceded', v: '31' }, { l: 'Diff', v: '+17' },
-              ],
-            },
-            {
-              icon: Users,
-              label: 'League Position',
-              color: 'text-neon-cyan',
-              stats: [
-                { l: 'Position', v: '3rd' }, { l: 'Points', v: '47' }, { l: 'Gap to Top', v: '5' },
-              ],
-            },
-          ].map(({ icon: Icon, label, color, stats }) => (
-            <BentoCard key={label} neonColor="green">
+          {seasonCards.map((card, idx) => {
+            const iconMap = [Trophy, Target, Users];
+            const colorMap = ['text-neon-yellow', 'text-neon-green', 'text-neon-cyan'];
+            const Icon = iconMap[idx] || Trophy;
+            const color = colorMap[idx] || 'text-neon-cyan';
+
+            return (
+            <BentoCard key={card.label} neonColor="green">
               <div className="flex items-center gap-2 mb-4">
                 <Icon size={16} className={color} />
-                <span className="text-sm font-semibold text-white">{label}</span>
+                <span className="text-sm font-semibold text-white">{card.label}</span>
               </div>
               <div className="flex items-center gap-4">
-                {stats.map(({ l, v }) => (
+                {card.stats.map(({ l, v }) => (
                   <div key={l} className="flex-1 text-center">
                     <div className={`text-3xl font-black ${color}`}>{v}</div>
                     <div className="text-xs text-gray-500 mt-0.5">{l}</div>
@@ -423,7 +409,8 @@ export default function FanDashboard() {
                 ))}
               </div>
             </BentoCard>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
