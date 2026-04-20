@@ -1,0 +1,72 @@
+# ------------------------------
+# OS / Editor
+# ------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+backend/.venv/
+
+# ------------------------------
+# Node / Frontend
+# ------------------------------
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------
+# Environment files
+# ------------------------------
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
+# ------------------------------
+# Local databases / binary artifacts
+# ------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.joblib
+*.pkl
+*.h5
+*.onnx
+
+# Project-specific generated artifacts
+backend/models/
+models/
+
+# Optional: if these are generated locally, keep ignored
+backend/test.db
+backend/soccer_ml.db
+soccer_ml.db
+
+# ------------------------------
+# Build / temp
+# ------------------------------
+dist/
+build/
+coverage/
+*.tmp
+*.temp
