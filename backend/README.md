@@ -2,6 +2,13 @@
 
 This backend powers the Player Performance Prediction System. It exposes ingestion, ML training, prediction, and reporting APIs with a lightweight FastAPI stack and a local SQL database by default.
 
+## How the Backend Works (High-Level Flow)
+
+1. CSV data is ingested into relational tables (`players`, `match_records`, `wellness_records`).
+2. The training pipeline builds a per-player dataset, generates synthetic labels, and trains models.
+3. Prediction endpoints load the saved artifacts and generate player-level outputs.
+4. Report endpoints aggregate predictions and the latest match/wellness data for dashboards.
+
 ## Stack (What Each Part Does)
 
 - FastAPI: REST endpoints and request validation.
@@ -26,6 +33,23 @@ This backend powers the Player Performance Prediction System. It exposes ingesti
 On startup, the API will:
 - Create database tables from the SQLAlchemy models.
 - Seed demo users for admin, manager, and fan roles.
+
+## 2.1) API Module Layout (Code Navigation)
+
+- `app/main.py`
+  - FastAPI app creation, CORS middleware, router registration, and startup hooks.
+- `app/core/config.py`
+  - Environment settings (`DATABASE_URL`, `BACKEND_CORS_ORIGINS`).
+- `app/db/`
+  - Session factory and database initialization helpers.
+- `app/models/`
+  - SQLAlchemy models for all tables.
+- `app/schemas/`
+  - Pydantic request/response models.
+- `app/services/`
+  - Data preprocessing and ML pipeline logic.
+- `app/api/routes/`
+  - API endpoints grouped by domain.
 
 ## 3) Environment Variables (What They Control)
 
@@ -53,6 +77,14 @@ The backend stores four core entities:
 
 Each `match_records` and `wellness_records` row is linked to a `players` row by `player_id`.
 
+### Data Lifecycle (From CSV to Prediction)
+
+1. CSV rows are normalized and validated.
+2. Players are upserted by `external_id`.
+3. Match and wellness rows are inserted and linked to `player_id`.
+4. Training builds a per-player dataset by joining and aggregating.
+5. Predictions are written back to the `predictions` table.
+
 ## 5) CSV Ingestion (Full Logic)
 
 ### Accepted CSVs
@@ -71,6 +103,8 @@ Each `match_records` and `wellness_records` row is linked to a `players` row by 
 - Numeric fields are coerced to numbers (invalid values become 0 or median, depending on dataset).
 - `external_id` is trimmed and used to map to a player.
 - Duplicates in players CSV are removed by `external_id`.
+- Dates (`match_date`, `record_date`) are parsed to `YYYY-MM-DD`.
+- Match and wellness rows are skipped if `external_id` has no matching player.
 
 ### Ingestion Endpoints
 
@@ -81,6 +115,12 @@ Each `match_records` and `wellness_records` row is linked to a `players` row by 
 
 CSV uploads use multipart form-data with key `file`.
 The dummy loader reads from `backend/data/dummy_csv/`.
+
+### What Gets Updated vs Inserted
+
+- `players`: existing records are updated by `external_id` (upsert).
+- `match_records`: always inserted (no de-duplication).
+- `wellness_records`: always inserted (no de-duplication).
 
 ## 6) ML Pipeline (Complete Logic)
 
@@ -135,6 +175,10 @@ injury_prob =
 - Rows are averaged per player (`groupby player_id`) to get a per-player training sample.
 - Training fails if fewer than 8 player rows are available.
 
+### Class Balancing (Injury Risk)
+
+If the initial labels contain only one class, the dataset is re-labeled by splitting at the median of the injury score so that both classes exist.
+
 ### Model Training
 
 - **RandomForestRegressor**
@@ -174,6 +218,14 @@ If either is missing, the API returns a 400 error.
 
 Each prediction is stored in the `predictions` table with a `feature_snapshot` and `shap_summary` (top factors only).
 
+### Feature Importance Explanation
+
+The Random Forest model exposes `feature_importances_`. The API returns the top 5 features with:
+
+- `feature`: the feature name
+- `importance`: relative importance from the forest
+- `value`: the player’s current value used for prediction
+
 ## 8) ML Endpoints
 
 - Train models and auto-generate predictions for all players:
@@ -182,6 +234,12 @@ Each prediction is stored in the `predictions` table with a `feature_snapshot` a
   - `POST /api/predictions/player/{player_id}`
 - Predict for all players with existing models:
   - `POST /api/predictions/generate-all`
+
+### What the Train Endpoint Does Internally
+
+1. Builds the training dataset by joining match + wellness + player rows.
+2. Trains and saves the Random Forest and SVM models.
+3. Generates predictions for every player and stores them.
 
 ## 9) Reporting Endpoints (What They Return)
 
@@ -204,6 +262,12 @@ Each prediction is stored in the `predictions` table with a `feature_snapshot` a
 - Fan dashboard: `GET /api/reports/fan/dashboard`
   - Comparison players, goal contribution data, team form, and upcoming match card
 
+### How Report Values Are Computed
+
+- Manager health is derived from fatigue and recovery scores.
+- Injury risk uses the latest saved prediction label if available.
+- Admin dashboard cards are derived from total counts and averages, with small UI-friendly transforms.
+
 ## 10) Auth Endpoints (Demo Login)
 
 - `POST /api/auth/login`
@@ -217,7 +281,13 @@ Seeded users are created at startup:
 - `manager@soccerml.io`
 - `fan@soccerml.io`
 
-## 11) Suggested Run Order
+## 11) Error Handling and Status Codes
+
+- `400` for validation/training/prediction errors (bad CSV, missing features, insufficient training data).
+- `404` when a player or user is not found.
+- CSV ingestion returns a list of per-row errors for missing `external_id` mapping.
+
+## 12) Suggested Run Order
 
 1. Ingest players CSV.
 2. Ingest match records CSV.
