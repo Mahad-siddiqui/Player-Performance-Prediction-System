@@ -1,4 +1,4 @@
-﻿		# Player Performance Prediction System
+﻿# Player Performance Prediction System
 
 End-to-end soccer analytics platform for ingesting match and wellness data, training ML models, and delivering role-based insights through a modern web UI.
 
