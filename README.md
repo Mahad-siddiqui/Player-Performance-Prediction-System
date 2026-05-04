@@ -1,4 +1,4 @@
-﻿# Player Performance Prediction System
+﻿		# Player Performance Prediction System
 
 End-to-end soccer analytics platform for ingesting match and wellness data, training ML models, and delivering role-based insights through a modern web UI.
 
@@ -38,6 +38,8 @@ Player-Performance-Prediction-System/
 			services/           # Preprocessing + ML training/inference
 		data/dummy_csv/       # Generated sample CSV files
 		scripts/              # Utility scripts (dummy data generation)
+
+<!-- refresh contributors cache -->
 	frontend/
 		src/
 			components/         # Reusable UI components
