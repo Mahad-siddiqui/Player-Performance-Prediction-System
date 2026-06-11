@@ -63,6 +63,12 @@ backend/soccer_ml.db
 soccer_ml.db
 
 # ------------------------------
+# Generated CSV data
+# ------------------------------
+backend/data/real_csv/*.csv
+backend/data/dummy_csv/*.csv
+
+# ------------------------------
 # Build / temp
 # ------------------------------
 dist/
