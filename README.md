@@ -37,7 +37,8 @@ Player-Performance-Prediction-System/
 			schemas/            # Pydantic request/response models
 			services/           # Preprocessing + ML training/inference
 		data/dummy_csv/       # Generated sample CSV files
-		scripts/              # Utility scripts (dummy data generation)
+		data/real_csv/        # Real StatsBomb La Liga 2020/21 data (downloaded by setup.sh)
+		scripts/              # Utility scripts (data download, dummy data generation)
 
 <!-- refresh contributors cache -->
 	frontend/
@@ -49,6 +50,26 @@ Player-Performance-Prediction-System/
 			data/               # Mock data and shared constants
 			types/              # Shared TypeScript types
 ```
+
+## Setup (Recommended)
+
+Clone and run the automated setup:
+
+```bash
+git clone https://github.com/Mahad-siddiqui/Player-Performance-Prediction-System.git
+cd Player-Performance-Prediction-System
+chmod +x setup.sh
+./setup.sh
+```
+
+This will automatically:
+
+- Create a Python virtual environment
+- Install all dependencies
+- Download real StatsBomb La Liga 2020/21 dataset (~40 players)
+- Set up environment variables
+
+After setup, use the Admin dashboard to upload CSVs from `backend/data/real_csv/`, or call `POST /api/ingestion/dummy/load-all` after loading real CSVs manually.
 
 ## Quick Start (Local)
 
@@ -332,7 +353,22 @@ injury_prob =
 
 ## Recommended Runbook
 
-### Option A: Fast demo path
+### Option A: One-command setup (real data)
+
+```bash
+chmod +x setup.sh && ./setup.sh
+```
+
+This installs everything and downloads the real StatsBomb La Liga 2020/21 dataset to `backend/data/real_csv/`. Then:
+
+1. Start backend: `cd backend && source .venv/bin/activate && uvicorn app.main:app --reload --port 8000`
+2. Start frontend: `cd frontend && npm run dev`
+3. Login as admin@soccerml.io
+4. Upload CSVs from `backend/data/real_csv/` in the Admin dashboard
+5. Trigger training (`POST /api/predictions/train`)
+6. Explore Manager and Fan dashboards with real player data
+
+### Option B: Dummy data fast demo
 
 1. Start backend
 2. Generate dummy CSV files:
@@ -346,7 +382,7 @@ python scripts/generate_dummy_data.py
 4. Call `POST /api/predictions/train`
 5. Start frontend and login with a seeded user
 
-### Option B: Upload your own CSV files
+### Option C: Upload your own CSV files
 
 1. Start backend and frontend
 2. Login as admin@soccerml.io
